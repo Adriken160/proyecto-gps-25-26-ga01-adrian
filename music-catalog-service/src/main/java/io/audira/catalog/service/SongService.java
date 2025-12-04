@@ -35,6 +35,7 @@ public class SongService {
     private final SongRepository songRepository;
     private final UserServiceClient userServiceClient;
     private final NotificationClient notificationClient;
+    private static final String WARNING_KEY = "Song not found with id: ";
 
     /**
      * Registra una nueva canción en el sistema.
@@ -113,7 +114,7 @@ public class SongService {
      */
     public Song getSongById(Long id) {
         return songRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Song not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + id));
     }
 
     /**
@@ -223,7 +224,7 @@ public class SongService {
     @Transactional
     public Song updateSong(Long id, Song songDetails) {
         Song song = songRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Song not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + id));
 
         if (songDetails.getTitle() != null) {
             song.setTitle(songDetails.getTitle());
@@ -281,7 +282,7 @@ public class SongService {
     @Transactional
     public void deleteSong(Long id) {
         if (!songRepository.existsById(id)) {
-            throw new IllegalArgumentException("Song not found with id: " + id);
+            throw new IllegalArgumentException(WARNING_KEY + id);
         }
         songRepository.deleteById(id);
     }
@@ -325,22 +326,19 @@ public class SongService {
 
             // Obtener información del artista
             UserDTO artist = userServiceClient.getUserById(product.getArtistId());
-            String artistName = artist != null && artist.getArtistName() != null
-                ? artist.getArtistName()
-                : (artist != null ? artist.getUsername() : "Artista");
+            String artistName = null;
+
+            if (artist != null) {
+                if (artist.getArtistName() != null) {
+                    artistName = artist.getArtistName();
+                } else {
+                    artistName = artist.getUsername();
+                }
+            }
 
             // Enviar notificación a cada seguidor
             for (Long followerId : followerIds) {
-                try {
-                    notificationClient.notifyNewProduct(
-                        followerId,
-                        product.getProductType(),
-                        product.getTitle(),
-                        artistName
-                    );
-                } catch (Exception e) {
-                    log.warn("Failed to notify follower {} about new product {}", followerId, product.getId(), e);
-                }
+                notifySingleFollower(followerId, product, artistName);
             }
 
             log.info("Notificados {} seguidores sobre nuevo producto: {} ({})",
@@ -348,6 +346,20 @@ public class SongService {
 
         } catch (Exception e) {
             log.error("Error notifying followers about new product {}", product.getId(), e);
+        }
+    }
+
+    private void notifySingleFollower(Long followerId, Product product, String artistName) {
+        try {
+            notificationClient.notifyNewProduct(
+                followerId,
+                product.getProductType(),
+                product.getTitle(),
+                artistName
+            );
+        } catch (Exception e) {
+            // Capturamos la excepción aquí para que el bucle principal continúe
+            log.warn("Failed to notify follower {} about new product {}", followerId, product.getId(), e);
         }
     }
 
@@ -366,7 +378,7 @@ public class SongService {
     @Transactional
     public Song publishSong(Long id, boolean published) {
         Song song = songRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Song not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + id));
 
         // GA01-162: Solo se puede publicar si está aprobada
         if (published && song.getModerationStatus() != ModerationStatus.APPROVED) {
@@ -502,7 +514,7 @@ public class SongService {
      */
     public SongDTO getSongByIdWithArtistName(Long id) {
         Song song = songRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Song not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + id));
         return convertToDTO(song);
     }
  
@@ -618,7 +630,7 @@ public class SongService {
      */
     public Map<String, Object> getArtistAndPriceBySongId(Long id) {
         Song song = songRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Song not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + id));
 
         return Map.of(
                 "artistId", song.getArtistId(),

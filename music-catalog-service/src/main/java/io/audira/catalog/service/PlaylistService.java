@@ -2,9 +2,10 @@ package io.audira.catalog.service;
 
 import io.audira.catalog.model.Playlist;
 import io.audira.catalog.repository.PlaylistRepository;
+import lombok.RequiredArgsConstructor;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,13 +24,14 @@ import java.util.Optional;
  * </ul>
  * </p>
  */
+@RequiredArgsConstructor
 @Service
 public class PlaylistService {
 
     private static final Logger logger = LoggerFactory.getLogger(PlaylistService.class);
+    private static final String WARNING_KEY = "Playlist not found with id: ";
 
-    @Autowired
-    private PlaylistRepository playlistRepository;
+    private final PlaylistRepository playlistRepository;
 
     /**
      * Recupera todas las listas de reproducción existentes en el sistema.
@@ -115,7 +117,7 @@ public class PlaylistService {
     @Transactional
     public Playlist updatePlaylist(Long id, String name, String description, Boolean isPublic) {
         Playlist playlist = playlistRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Playlist not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException(WARNING_KEY + id));
 
         if (name != null && !name.trim().isEmpty()) {
             playlist.setName(name.trim());
@@ -142,7 +144,7 @@ public class PlaylistService {
     @Transactional
     public void deletePlaylist(Long id) {
         Playlist playlist = playlistRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Playlist not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException(WARNING_KEY + id));
 
         logger.info("Deleting playlist {} '{}' for user {}", id, playlist.getName(), playlist.getUserId());
         playlistRepository.deleteById(id);
@@ -163,7 +165,7 @@ public class PlaylistService {
     @Transactional
     public Playlist addSongToPlaylist(Long playlistId, Long songId) {
         Playlist playlist = playlistRepository.findById(playlistId)
-                .orElseThrow(() -> new RuntimeException("Playlist not found with id: " + playlistId));
+                .orElseThrow(() -> new RuntimeException(WARNING_KEY + playlistId));
 
         if (playlist.containsSong(songId)) {
             logger.warn("Song {} already exists in playlist {}", songId, playlistId);
@@ -189,7 +191,7 @@ public class PlaylistService {
     @Transactional
     public Playlist removeSongFromPlaylist(Long playlistId, Long songId) {
         Playlist playlist = playlistRepository.findById(playlistId)
-                .orElseThrow(() -> new RuntimeException("Playlist not found with id: " + playlistId));
+                .orElseThrow(() -> new RuntimeException(WARNING_KEY + playlistId));
 
         boolean removed = playlist.removeSong(songId);
         if (removed) {
@@ -221,7 +223,7 @@ public class PlaylistService {
     @Transactional
     public Playlist reorderPlaylistSongs(Long playlistId, List<Long> songIds) {
         Playlist playlist = playlistRepository.findById(playlistId)
-                .orElseThrow(() -> new RuntimeException("Playlist not found with id: " + playlistId));
+                .orElseThrow(() -> new RuntimeException(WARNING_KEY + playlistId));
 
         for (Long songId : songIds) {
             if (!playlist.containsSong(songId)) {

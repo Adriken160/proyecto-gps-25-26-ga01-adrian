@@ -41,6 +41,8 @@ import java.util.stream.Collectors;
 public class MetricsService {
 
     private static final Logger logger = LoggerFactory.getLogger(MetricsService.class);
+    private static final String TOTAL_KEY = "totalSales";
+    private static final String REVENUE_KEY = "totalRevenue";
 
     private final SongRepository songRepository;
     private final AlbumRepository albumRepository;
@@ -90,8 +92,8 @@ public class MetricsService {
         List<OrderDTO> allOrders = commerceServiceClient.getAllOrders();
 
         Map<String, Object> salesMetrics = calculateArtistSales(artistSongs, allOrders);
-        Long totalSales = (Long) salesMetrics.get("totalSales");
-        BigDecimal totalRevenue = (BigDecimal) salesMetrics.get("totalRevenue");
+        Long totalSales = (Long) salesMetrics.get(TOTAL_KEY);
+        BigDecimal totalRevenue = (BigDecimal) salesMetrics.get(REVENUE_KEY);
         Long salesLast30Days = (Long) salesMetrics.get("salesLast30Days");
         BigDecimal revenueLast30Days = (BigDecimal) salesMetrics.get("revenueLast30Days");
         Double salesGrowth = calculateEstimatedGrowth(totalSales);
@@ -176,8 +178,8 @@ public class MetricsService {
         logger.info(" Retrieved {} total orders from commerce service", allOrders.size());
 
         Map<String, Object> salesMetrics = calculateArtistSales(artistSongs, allOrders);
-        Long totalSales = (Long) salesMetrics.get("totalSales");
-        BigDecimal totalRevenue = (BigDecimal) salesMetrics.get("totalRevenue");
+        Long totalSales = (Long) salesMetrics.get(TOTAL_KEY);
+        BigDecimal totalRevenue = (BigDecimal) salesMetrics.get(REVENUE_KEY);
 
         List<ArtistMetricsDetailed.DailyMetric> dailyMetrics = generateDailyMetricsWithRealData(
                 artistSongs, allOrders, startDate, endDate, totalPlays
@@ -294,8 +296,8 @@ public class MetricsService {
 
         List<OrderDTO> allOrders = commerceServiceClient.getAllOrders();
         Map<String, Object> songSales = calculateSongSales(songId, allOrders);
-        Long totalSales = (Long) songSales.get("totalSales");
-        BigDecimal totalRevenue = (BigDecimal) songSales.get("totalRevenue");
+        Long totalSales = (Long) songSales.get(TOTAL_KEY);
+        BigDecimal totalRevenue = (BigDecimal) songSales.get(REVENUE_KEY);
 
         return SongMetrics.builder()
                 .songId(song.getId())
@@ -311,21 +313,20 @@ public class MetricsService {
                 .build();
     }
 
-    /**
-     * Calcula el volumen total de ventas generadas por un artista.
-     * <p>
-     * Realiza una agregación de todas las transacciones comerciales asociadas al artista.
-     * Esto incluye:
-     * <ul>
-     * <li>Ventas directas de álbumes completos.</li>
-     * <li>Ventas individuales de canciones (Singles o tracks de álbumes).</li>
-     * </ul>
-     * Se comunica con el {@link CommerceServiceClient} para obtener los datos transaccionales.
-     * </p>
-     *
-     * @param artistId Identificador único del artista.
-     * @return Número total de unidades vendidas (Songs + Albums).
-     */
+    @lombok.Data // Or manually add getters/setters
+    private static class SalesStats {
+        long totalSales = 0;
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        long salesLast30Days = 0;
+        BigDecimal revenueLast30Days = BigDecimal.ZERO;
+        
+        // Counters for logging
+        int deliveredOrders = 0;
+        int skippedOrders = 0;
+        int relevantOrders = 0;
+    }
+
+    // 2. Main Method (Clean and Linear)
     private Map<String, Object> calculateArtistSales(List<Song> artistSongs, List<OrderDTO> allOrders) {
         Set<Long> artistSongIds = artistSongs.stream()
                 .map(Song::getId)
@@ -334,69 +335,91 @@ public class MetricsService {
         logger.info(" Calculating sales for artist songs. Artist has {} songs", artistSongs.size());
         logger.info("   Processing {} total orders", allOrders.size());
 
+        SalesStats stats = new SalesStats();
         LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
 
-        long totalSales = 0;
-        BigDecimal totalRevenue = BigDecimal.ZERO;
-        long salesLast30Days = 0;
-        BigDecimal revenueLast30Days = BigDecimal.ZERO;
-
-        int deliveredOrders = 0;
-        int skippedOrders = 0;
-        int relevantOrders = 0;
-
+        // Main Loop: complexity reduced significantly
         for (OrderDTO order : allOrders) {
-            logger.debug("   Order ID {} - Status: {} - Created: {}",
-                    order.getId(), order.getStatus(), order.getCreatedAt());
-
-            if (order.getStatus() == null || !"DELIVERED".equals(order.getStatus())) {
-                logger.debug("       Skipped order {} - Status: {} (not DELIVERED)",
-                        order.getId(), order.getStatus());
-                skippedOrders++;
-                continue;
-            }
-
-            deliveredOrders++;
-
-            if (order.getItems() == null) {
-                logger.debug("       Order {} has no items", order.getId());
-                continue;
-            }
-
-            for (OrderItemDTO item : order.getItems()) {
-                if ("SONG".equalsIgnoreCase(item.getItemType()) && artistSongIds.contains(item.getItemId())) {
-                    relevantOrders++;
-                    long quantity = item.getQuantity() != null ? item.getQuantity() : 1;
-                    BigDecimal price = item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
-                    BigDecimal itemRevenue = price.multiply(BigDecimal.valueOf(quantity));
-
-                    logger.info("       Found sale: Song ID {} - Qty: {} - Price: ${} - Revenue: ${}",
-                            item.getItemId(), quantity, price, itemRevenue);
-
-                    totalSales += quantity;
-                    totalRevenue = totalRevenue.add(itemRevenue);
-
-                    if (order.getCreatedAt() != null && order.getCreatedAt().isAfter(thirtyDaysAgo)) {
-                        salesLast30Days += quantity;
-                        revenueLast30Days = revenueLast30Days.add(itemRevenue);
-                    }
-                }
-            }
+            processOrder(order, artistSongIds, stats, thirtyDaysAgo);
         }
 
-        logger.info(" Sales calculation summary:");
-        logger.info("   Total orders processed: {}", allOrders.size());
-        logger.info("   DELIVERED orders: {}", deliveredOrders);
-        logger.info("   Skipped orders (not DELIVERED): {}", skippedOrders);
-        logger.info("   Orders with artist's songs: {}", relevantOrders);
-        logger.info("   Total sales: {}", totalSales);
-        logger.info("   Total revenue: ${}", totalRevenue);
+        logSummary(allOrders.size(), stats);
+        return buildResultMap(stats);
+    }
 
+    // 3. Helper: Process a single Order
+    private void processOrder(OrderDTO order, Set<Long> artistSongIds, SalesStats stats, LocalDateTime thirtyDaysAgo) {
+        logger.debug("   Order ID {} - Status: {} - Created: {}", 
+            order.getId(), order.getStatus(), order.getCreatedAt());
+
+        if (!isOrderValid(order)) {
+            logger.debug("       Skipped order {} - Status: {} (not DELIVERED)", 
+                order.getId(), order.getStatus());
+            stats.skippedOrders++;
+            return;
+        }
+
+        stats.deliveredOrders++;
+
+        if (order.getItems() == null) {
+            logger.debug("       Order {} has no items", order.getId());
+            return;
+        }
+
+        for (OrderItemDTO item : order.getItems()) {
+            processOrderItem(item, order, artistSongIds, stats, thirtyDaysAgo);
+        }
+    }
+
+    // 4. Helper: Process a single Item (The core calculation logic)
+    private void processOrderItem(OrderItemDTO item, OrderDTO order, Set<Long> artistSongIds, 
+                                  SalesStats stats, LocalDateTime thirtyDaysAgo) {
+        
+        if (!"SONG".equalsIgnoreCase(item.getItemType()) || !artistSongIds.contains(item.getItemId())) {
+            return;
+        }
+
+        stats.relevantOrders++; // Incremented per matching item found
+        
+        long quantity = item.getQuantity() != null ? item.getQuantity() : 1;
+        BigDecimal price = item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
+        BigDecimal itemRevenue = price.multiply(BigDecimal.valueOf(quantity));
+
+        logger.info("       Found sale: Song ID {} - Qty: {} - Price: ${} - Revenue: ${}",
+                item.getItemId(), quantity, price, itemRevenue);
+
+        // Update Totals
+        stats.totalSales += quantity;
+        stats.totalRevenue = stats.totalRevenue.add(itemRevenue);
+
+        // Update 30-Day Totals
+        if (order.getCreatedAt() != null && order.getCreatedAt().isAfter(thirtyDaysAgo)) {
+            stats.salesLast30Days += quantity;
+            stats.revenueLast30Days = stats.revenueLast30Days.add(itemRevenue);
+        }
+    }
+
+    // 5. Small Helpers for readability
+    private boolean isOrderValid(OrderDTO order) {
+        return order.getStatus() != null && "DELIVERED".equals(order.getStatus());
+    }
+
+    private void logSummary(int totalOrders, SalesStats stats) {
+        logger.info(" Sales calculation summary:");
+        logger.info("   Total orders processed: {}", totalOrders);
+        logger.info("   DELIVERED orders: {}", stats.deliveredOrders);
+        logger.info("   Skipped orders (not DELIVERED): {}", stats.skippedOrders);
+        logger.info("   Orders with artist's songs: {}", stats.relevantOrders);
+        logger.info("   Total sales: {}", stats.totalSales);
+        logger.info("   Total revenue: ${}", stats.totalRevenue);
+    }
+
+    private Map<String, Object> buildResultMap(SalesStats stats) {
         Map<String, Object> result = new HashMap<>();
-        result.put("totalSales", totalSales);
-        result.put("totalRevenue", totalRevenue);
-        result.put("salesLast30Days", salesLast30Days);
-        result.put("revenueLast30Days", revenueLast30Days);
+        result.put("totalSales", stats.totalSales);
+        result.put("totalRevenue", stats.totalRevenue);
+        result.put("salesLast30Days", stats.salesLast30Days);
+        result.put("revenueLast30Days", stats.revenueLast30Days);
         return result;
     }
 
@@ -415,45 +438,51 @@ public class MetricsService {
         BigDecimal totalRevenue = BigDecimal.ZERO;
 
         for (OrderDTO order : allOrders) {
-            if (order.getStatus() == null || !"DELIVERED".equals(order.getStatus())) {
-                continue;
-            }
+        // CAMBIO: Combinamos las condiciones en un solo IF positivo
+        // Verificamos si es válido para procesar
+        boolean isDelivered = "DELIVERED".equals(order.getStatus());
+        boolean hasItems = order.getItems() != null;
 
-            if (order.getItems() == null) continue;
-
+        if (isDelivered && hasItems) {
+            // Lógica interna movida dentro del if
             for (OrderItemDTO item : order.getItems()) {
                 if ("SONG".equalsIgnoreCase(item.getItemType()) && songId.equals(item.getItemId())) {
                     long quantity = item.getQuantity() != null ? item.getQuantity() : 1;
                     BigDecimal price = item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
-
+                    
                     totalSales += quantity;
                     totalRevenue = totalRevenue.add(price.multiply(BigDecimal.valueOf(quantity)));
                 }
             }
         }
+    }
 
         Map<String, Object> result = new HashMap<>();
-        result.put("totalSales", totalSales);
-        result.put("totalRevenue", totalRevenue);
+        result.put(TOTAL_KEY, totalSales);
+        result.put(REVENUE_KEY, totalRevenue);
         return result;
     }
 
-    /**
-     * Genera datos sintéticos diarios distribuyendo los totales actuales.
-     * <p>
-     * <b>Nota Técnica:</b> Este método es un "Mock" inteligente. En un entorno de producción real,
-     * Audira debería tener un proceso batch nocturno que guarde snapshots diarios en una tabla
-     * {@code historical_metrics}. Como esa tabla no existe en el esquema actual, este método
-     * reconstruye una historia plausible usando aleatoriedad controlada para que los gráficos
-     * del frontend no se vean vacíos.
-     * </p>
-     *
-     * @param start Fecha inicio.
-     * @param end Fecha fin.
-     * @param totalPlays Total de plays actuales (semilla para la distribución).
-     * @param currentRating Rating actual promedio.
-     * @return Lista cronológica de métricas diarias.
-     */
+    // 1. Inner class to manage the mutable state (simplifies method signatures)
+    private static class DistributionState {
+        long remainingPlays;
+        long remainingSales;
+        long totalPlays; // Needed for the "< 10" logic
+        long totalSales;
+        long daysToDistribute;
+        Random random;
+
+        public DistributionState(long totalPlays, long totalSales, long daysInRange) {
+            this.remainingPlays = totalPlays;
+            this.remainingSales = totalSales;
+            this.totalPlays = totalPlays;
+            this.totalSales = totalSales;
+            this.daysToDistribute = Math.min(daysInRange, 7);
+            this.random = new Random(42);
+        }
+    }
+
+    // 2. Main Method (Clean and Linear)
     private List<ArtistMetricsDetailed.DailyMetric> generateDailyMetricsWithRealData(
             List<Song> artistSongs,
             List<OrderDTO> allOrders,
@@ -464,92 +493,116 @@ public class MetricsService {
         logger.info("📈 Generating daily metrics from {} to {}", startDate, endDate);
         logger.info("   Total plays to distribute: {}", totalPlays);
 
-        List<ArtistMetricsDetailed.DailyMetric> metrics = new ArrayList<>();
-        LocalDate currentDate = startDate;
+        // Step 1: Calculate aggregations (extracted)
+        double avgRating = calculateAverageRating(artistSongs);
+        long totalSales = extractTotalSales(artistSongs, allOrders);
+
+        // Step 2: Initialize State
         long daysInRange = endDate.toEpochDay() - startDate.toEpochDay() + 1;
+        DistributionState state = new DistributionState(totalPlays, totalSales, daysInRange);
+        List<ArtistMetricsDetailed.DailyMetric> metrics = new ArrayList<>();
 
+        // Step 3: Main Loop (Logic delegated to helper)
+        LocalDate currentDate = startDate;
+        while (!currentDate.isAfter(endDate)) {
+            metrics.add(createMetricForDay(currentDate, endDate, state, avgRating));
+            currentDate = currentDate.plusDays(1);
+        }
+
+        return metrics;
+    }
+
+    private long extractTotalSales(List<Song> artistSongs, List<OrderDTO> allOrders) {
         Map<String, Object> salesMetrics = calculateArtistSales(artistSongs, allOrders);
-        Long totalSales = (Long) salesMetrics.get("totalSales");
-        logger.info("   Total sales to distribute: {}", totalSales);
+        long sales = (Long) salesMetrics.get("totalSales");
+        logger.info("   Total sales to distribute: {}", sales);
+        return sales;
+    }
 
-        Set<Long> songIds = artistSongs.stream().map(Song::getId).collect(Collectors.toSet());
+    private double calculateAverageRating(List<Song> artistSongs) {
         double totalRatingSum = 0.0;
         int ratingCount = 0;
 
-        for (Long songId : songIds) {
-            RatingStatsDTO stats = ratingServiceClient.getEntityRatingStats("SONG", songId);
+        for (Song song : artistSongs) {
+            RatingStatsDTO stats = ratingServiceClient.getEntityRatingStats("SONG", song.getId());
             if (stats.getAverageRating() != null && stats.getAverageRating() > 0) {
                 totalRatingSum += stats.getAverageRating();
                 ratingCount++;
             }
         }
+        return ratingCount > 0 ? totalRatingSum / ratingCount : 0.0;
+    }
 
-        double avgRating = ratingCount > 0 ? totalRatingSum / ratingCount : 0.0;
+    private ArtistMetricsDetailed.DailyMetric createMetricForDay(
+            LocalDate currentDate, LocalDate endDate, DistributionState state, double avgRating) {
+        
+        long dailyPlays = 0;
+        long dailySales = 0;
+        boolean isRecentDay = (endDate.toEpochDay() - currentDate.toEpochDay()) < state.daysToDistribute;
 
-        Random random = new Random(42); // Fixed seed for consistent data
-
-        long remainingPlays = totalPlays;
-        long remainingSales = totalSales;
-        long daysToDistribute = Math.min(daysInRange, 7); // Concentrate in last 7 days
-
-        while (!currentDate.isAfter(endDate)) {
-            long dailyPlays = 0;
-            long dailySales = 0;
-
-            boolean isRecentDay = (endDate.toEpochDay() - currentDate.toEpochDay()) < daysToDistribute;
-
-            if (isRecentDay && remainingPlays > 0) {
-                if (totalPlays < 10) {
-                    dailyPlays = random.nextBoolean() ? remainingPlays : 0;
-                } else {
-                    dailyPlays = remainingPlays / daysToDistribute;
-                }
-                remainingPlays -= dailyPlays;
-            }
-
-            if (isRecentDay && remainingSales > 0) {
-                if (totalSales < 10) {
-                    dailySales = random.nextBoolean() ? remainingSales : 0;
-                } else {
-                    dailySales = remainingSales / daysToDistribute;
-                }
-                remainingSales -= dailySales;
-            }
-
-            if (currentDate.equals(endDate)) {
-                dailyPlays += remainingPlays;
-                dailySales += remainingSales;
-            }
-
-            BigDecimal dailyRevenue = BigDecimal.valueOf(dailySales * 0.99)
-                    .setScale(2, RoundingMode.HALF_UP);
-
-            long dailyComments = random.nextInt(3);
-
-            double dailyRating = avgRating > 0 ? avgRating + (random.nextDouble() * 0.4 - 0.2) : 0.0;
-            dailyRating = Math.max(0.0, Math.min(5.0, dailyRating));
-
-            if (dailyPlays > 0 || dailySales > 0) {
-                logger.debug("   Day {}: Plays={}, Sales={}, Revenue=${}",
-                    currentDate, dailyPlays, dailySales, dailyRevenue);
-            }
-
-            metrics.add(ArtistMetricsDetailed.DailyMetric.builder()
-                    .date(currentDate)
-                    .plays(dailyPlays)
-                    .sales(dailySales)
-                    .revenue(dailyRevenue)
-                    .comments(dailyComments)
-                    .averageRating(Math.round(dailyRating * 10.0) / 10.0)
-                    .build());
-
-            currentDate = currentDate.plusDays(1);
+        // Logic for Plays
+        if (isRecentDay && state.remainingPlays > 0) {
+            dailyPlays = calculateDailyAmount(state.remainingPlays, state.totalPlays, state.daysToDistribute, state.random);
+            state.remainingPlays -= dailyPlays;
         }
 
-        long totalDistributed = metrics.stream().mapToLong(ArtistMetricsDetailed.DailyMetric::getPlays).sum();
-        logger.info(" Daily metrics generated: {} days, {} total plays distributed", metrics.size(), totalDistributed);
+        // Logic for Sales
+        if (isRecentDay && state.remainingSales > 0) {
+            dailySales = calculateDailyAmount(state.remainingSales, state.totalSales, state.daysToDistribute, state.random);
+            state.remainingSales -= dailySales;
+        }
 
-        return metrics;
+        // Catch-all for the final day
+        if (currentDate.equals(endDate)) {
+            dailyPlays += state.remainingPlays;
+            dailySales += state.remainingSales;
+        }
+
+        logDailyActivity(currentDate, dailyPlays, dailySales);
+
+        return buildDailyMetric(currentDate, dailyPlays, dailySales, avgRating, state.random);
+    }
+
+    // Generic logic for distributing numbers (Works for both Plays and Sales)
+    private long calculateDailyAmount(long remaining, long total, long daysToDistribute, Random random) {
+        if (total < 10) {
+            return random.nextBoolean() ? remaining : 0;
+        }
+        return remaining / daysToDistribute;
+    }
+
+    private ArtistMetricsDetailed.DailyMetric buildDailyMetric(
+        LocalDate date, long plays, long sales, double avgRating, Random random) {
+    
+        BigDecimal dailyRevenue = BigDecimal.valueOf(sales * 0.99)
+                .setScale(2, RoundingMode.HALF_UP);
+        
+        long dailyComments = random.nextInt(3);
+        
+        double dailyRating = 0.0;
+        if (avgRating > 0) {
+            dailyRating = avgRating + (random.nextDouble() * 0.4 - 0.2);
+            // Asegurar que el rating esté entre 0 y 5
+            dailyRating = Math.max(0.0, Math.min(5.0, dailyRating));
+        }
+
+        ArtistMetricsDetailed.DailyMetric metric = new ArtistMetricsDetailed.DailyMetric();
+            metric.setDate(date); 
+            metric.setPlays(plays);
+            metric.setSales(sales);
+            metric.setRevenue(dailyRevenue);
+            metric.setComments(dailyComments); 
+            metric.setAverageRating(dailyRating);
+        
+        return metric;
+    }
+
+    private void logDailyActivity(LocalDate date, long plays, long sales) {
+        if (plays > 0 || sales > 0) {
+            // Recalculating revenue just for log to keep method signature clean
+            BigDecimal revenue = BigDecimal.valueOf(sales * 0.99).setScale(2, RoundingMode.HALF_UP); 
+            logger.debug("   Day {}: Plays={}, Sales={}, Revenue=${}", date, plays, sales, revenue);
+        }
     }
 
     /**

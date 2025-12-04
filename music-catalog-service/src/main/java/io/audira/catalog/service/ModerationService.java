@@ -28,6 +28,8 @@ public class ModerationService {
     private final ModerationHistoryRepository moderationHistoryRepository;
     private final UserServiceClient userServiceClient;
     private final io.audira.catalog.client.NotificationClient notificationClient;
+    private final static String WARNING_SONG_KEY = "Canción no encontrada: ";
+    private final static String WARNING_ALBUM_KEY = "Álbum no encontrado: ";
 
     /**
      * GA01-162: Aprobar una canción
@@ -36,7 +38,7 @@ public class ModerationService {
     @Transactional
     public Song approveSong(Long songId, Long adminId, String notes) {
         Song song = songRepository.findById(songId)
-                .orElseThrow(() -> new IllegalArgumentException("Canción no encontrada: " + songId));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_SONG_KEY + songId));
 
         ModerationStatus previousStatus = song.getModerationStatus();
 
@@ -81,7 +83,7 @@ public class ModerationService {
         }
 
         Song song = songRepository.findById(songId)
-                .orElseThrow(() -> new IllegalArgumentException("Canción no encontrada: " + songId));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_SONG_KEY + songId));
 
         ModerationStatus previousStatus = song.getModerationStatus();
 
@@ -116,7 +118,7 @@ public class ModerationService {
     @Transactional
     public Album approveAlbum(Long albumId, Long adminId, String notes) {
         Album album = albumRepository.findById(albumId)
-                .orElseThrow(() -> new IllegalArgumentException("Álbum no encontrado: " + albumId));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_ALBUM_KEY + albumId));
 
         ModerationStatus previousStatus = album.getModerationStatus();
 
@@ -161,7 +163,7 @@ public class ModerationService {
         }
 
         Album album = albumRepository.findById(albumId)
-                .orElseThrow(() -> new IllegalArgumentException("Álbum no encontrado: " + albumId));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_ALBUM_KEY + albumId));
 
         ModerationStatus previousStatus = album.getModerationStatus();
 
@@ -283,7 +285,7 @@ public class ModerationService {
     @Transactional
     public void markSongAsPending(Long songId) {
         Song song = songRepository.findById(songId)
-                .orElseThrow(() -> new IllegalArgumentException("Canción no encontrada: " + songId));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_SONG_KEY + songId));
 
         ModerationStatus previousStatus = song.getModerationStatus();
         if (previousStatus != ModerationStatus.PENDING) {
@@ -301,7 +303,7 @@ public class ModerationService {
     @Transactional
     public void markAlbumAsPending(Long albumId) {
         Album album = albumRepository.findById(albumId)
-                .orElseThrow(() -> new IllegalArgumentException("Álbum no encontrado: " + albumId));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_ALBUM_KEY + albumId));
 
         ModerationStatus previousStatus = album.getModerationStatus();
         if (previousStatus != ModerationStatus.PENDING) {
@@ -331,9 +333,15 @@ public class ModerationService {
 
             // Obtener información del artista
             UserDTO artist = userServiceClient.getUserById(product.getArtistId());
-            String artistName = artist != null && artist.getArtistName() != null
-                ? artist.getArtistName()
-                : (artist != null ? artist.getUsername() : null);
+            String artistName = null;
+
+            if (artist != null) {
+                if (artist.getArtistName() != null) {
+                    artistName = artist.getArtistName();
+                } else {
+                    artistName = artist.getUsername();
+                }
+            }
 
             if (artistName == null) {
                 log.error("Cannot notify followers: artist name is null for artistId {}", product.getArtistId());
@@ -342,16 +350,7 @@ public class ModerationService {
 
             // Enviar notificación a cada seguidor
             for (Long followerId : followerIds) {
-                try {
-                    notificationClient.notifyNewProduct(
-                        followerId,
-                        product.getProductType(),
-                        product.getTitle(),
-                        artistName
-                    );
-                } catch (Exception e) {
-                    log.warn("Failed to notify follower {} about new product {}", followerId, product.getId(), e);
-                }
+                notifySingleFollower(followerId, product, artistName);
             }
 
             log.info("Notificados {} seguidores sobre nuevo producto: {} ({})",
@@ -359,6 +358,20 @@ public class ModerationService {
 
         } catch (Exception e) {
             log.error("Error notifying followers about new product {}", product.getId(), e);
+        }
+    }
+
+    private void notifySingleFollower(Long followerId, Product product, String artistName) {
+        try {
+            notificationClient.notifyNewProduct(
+                followerId,
+                product.getProductType(),
+                product.getTitle(),
+                artistName
+            );
+        } catch (Exception e) {
+            // Capturamos la excepción aquí para que el bucle principal continúe
+            log.warn("Failed to notify follower {} about new product {}", followerId, product.getId(), e);
         }
     }
 }

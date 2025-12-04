@@ -3,12 +3,13 @@ package io.audira.catalog.service;
 import io.audira.catalog.dto.CollaborationRequest;
 import io.audira.catalog.dto.UpdateRevenueRequest;
 import io.audira.catalog.model.CollaborationStatus;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.audira.catalog.model.Collaborator;
 import io.audira.catalog.repository.CollaboratorRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,13 +28,16 @@ import java.util.Optional;
  * Maneja la integridad de datos tanto para colaboraciones en Canciones individuales como en Álbumes completos.
  * </p>
  */
+@RequiredArgsConstructor
 @Service
 public class CollaboratorService {
 
     private static final Logger logger = LoggerFactory.getLogger(CollaboratorService.class);
+    private static final String ALBUM_KEY = "album";
+    private static final String SONG_KEY = "song";
+    private static final String WARNING_KEY = "Collaboration not found with id: ";
 
-    @Autowired
-    private CollaboratorRepository collaboratorRepository;
+    private final CollaboratorRepository collaboratorRepository;
 
     /**
      * Recupera el listado completo de todas las colaboraciones registradas en el sistema.
@@ -199,7 +203,7 @@ public class CollaboratorService {
 
         logger.info("Collaboration invitation created: {} invited artist {} for {} {}",
                 inviterId, request.getArtistId(),
-                saved.isForSong() ? "song" : "album",
+                saved.isForSong() ? SONG_KEY : ALBUM_KEY,
                 saved.getEntityId());
 
         return saved;
@@ -218,7 +222,7 @@ public class CollaboratorService {
     @Transactional
     public Collaborator acceptCollaboration(Long collaborationId, Long artistId) {
         Collaborator collaborator = collaboratorRepository.findById(collaborationId)
-                .orElseThrow(() -> new RuntimeException("Collaboration not found with id: " + collaborationId));
+                .orElseThrow(() -> new RuntimeException(WARNING_KEY + collaborationId));
 
         if (!collaborator.getArtistId().equals(artistId)) {
             throw new IllegalArgumentException("You are not authorized to accept this collaboration");
@@ -233,7 +237,7 @@ public class CollaboratorService {
 
         logger.info("Collaboration accepted: artist {} accepted collaboration {} for {} {}",
                 artistId, collaborationId,
-                saved.isForSong() ? "song" : "album",
+                saved.isForSong() ? SONG_KEY : ALBUM_KEY,
                 saved.getEntityId());
 
         return saved;
@@ -252,7 +256,7 @@ public class CollaboratorService {
     @Transactional
     public Collaborator rejectCollaboration(Long collaborationId, Long artistId) {
         Collaborator collaborator = collaboratorRepository.findById(collaborationId)
-                .orElseThrow(() -> new RuntimeException("Collaboration not found with id: " + collaborationId));
+                .orElseThrow(() -> new RuntimeException(WARNING_KEY + collaborationId));
 
         if (!collaborator.getArtistId().equals(artistId)) {
             throw new IllegalArgumentException("You are not authorized to reject this collaboration");
@@ -267,7 +271,7 @@ public class CollaboratorService {
 
         logger.info("Collaboration rejected: artist {} rejected collaboration {} for {} {}",
                 artistId, collaborationId,
-                saved.isForSong() ? "song" : "album",
+                saved.isForSong() ? SONG_KEY : ALBUM_KEY,
                 saved.getEntityId());
 
         return saved;
@@ -361,7 +365,7 @@ public class CollaboratorService {
     @Transactional
     public Collaborator updateRevenuePercentage(Long collaborationId, UpdateRevenueRequest request, Long userId) {
         Collaborator collaborator = collaboratorRepository.findById(collaborationId)
-                .orElseThrow(() -> new RuntimeException("Collaboration not found with id: " + collaborationId));
+                .orElseThrow(() -> new RuntimeException(WARNING_KEY + collaborationId));
 
         if (!collaborator.getInvitedBy().equals(userId)) {
             throw new IllegalArgumentException("Only the creator can update revenue percentage");

@@ -39,6 +39,15 @@ public class FeaturedContentService {
     private final SongRepository songRepository;
     private final AlbumRepository albumRepository;
     private final UserServiceClient userServiceClient;
+    private static final String WARNING_KEY = "Featured content not found with id: ";
+
+    @lombok.Builder
+    @lombok.Data
+    private static class ContentMetadata {
+        private String title;
+        private String imageUrl;
+        private String artist;
+    }
 
     /**
      * Recupera la lista completa de contenido destacado, sin filtros.
@@ -83,7 +92,7 @@ public class FeaturedContentService {
      */
     public FeaturedContentResponse getFeaturedContentById(Long id) {
         FeaturedContent entity = featuredContentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Featured content not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + id));
         return FeaturedContentResponse.fromEntity(entity);
     }
 
@@ -105,55 +114,13 @@ public class FeaturedContentService {
      */
     @Transactional
     public FeaturedContentResponse createFeaturedContent(FeaturedContentRequest request) {
-        if (request.getContentType() == null) {
-            throw new IllegalArgumentException("Content type is required");
-        }
-        if (request.getContentId() == null) {
-            throw new IllegalArgumentException("Content ID is required");
-        }
+        validateRequest(request);
 
-        if (featuredContentRepository.existsByContentTypeAndContentId(
-                request.getContentType(), request.getContentId())) {
-            throw new IllegalArgumentException("This content is already featured");
-        }
+        // Paso 2: Obtener metadatos según el tipo (Extraído)
+        ContentMetadata metadata = resolveContentMetadata(request);
 
-        String title = null;
-        String imageUrl = null;
-        String artist = null;
-
-        if (request.getContentType() == ContentType.SONG) {
-            Song song = songRepository.findById(request.getContentId())
-                    .orElseThrow(() -> new IllegalArgumentException("Song not found with id: " + request.getContentId()));
-
-            if (!song.isPublished()) {
-                throw new IllegalArgumentException("Cannot feature unpublished song");
-            }
-
-            title = song.getTitle();
-            imageUrl = song.getCoverImageUrl();
-
-            UserDTO artistUser = userServiceClient.getUserById(song.getArtistId());
-            artist = artistUser.getArtistName() != null ? artistUser.getArtistName() : artistUser.getUsername();
-        } else if (request.getContentType() == ContentType.ALBUM) {
-            Album album = albumRepository.findById(request.getContentId())
-                    .orElseThrow(() -> new IllegalArgumentException("Album not found with id: " + request.getContentId()));
-
-            if (!album.isPublished()) {
-                throw new IllegalArgumentException("Cannot feature unpublished album");
-            }
-
-            title = album.getTitle();
-            imageUrl = album.getCoverImageUrl();
-
-            UserDTO artistUser = userServiceClient.getUserById(album.getArtistId());
-            artist = artistUser.getArtistName() != null ? artistUser.getArtistName() : artistUser.getUsername();
-        }
-
-        Integer displayOrder = request.getDisplayOrder();
-        if (displayOrder == null || displayOrder > 900) {
-            Integer maxOrder = featuredContentRepository.findMaxDisplayOrder();
-            displayOrder = (maxOrder != null ? maxOrder + 1 : 0);
-        }
+        // Paso 3: Calcular orden (Extraído)
+        Integer displayOrder = calculateDisplayOrder(request.getDisplayOrder());
 
         FeaturedContent entity = FeaturedContent.builder()
                 .contentType(request.getContentType())
@@ -161,14 +128,86 @@ public class FeaturedContentService {
                 .displayOrder(displayOrder)
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-                .contentTitle(title)
-                .contentImageUrl(imageUrl)
-                .contentArtist(artist)
+                .isActive(!Boolean.FALSE.equals(request.getIsActive()))
+                .contentTitle(metadata.getTitle())      // Usamos el objeto metadata
+                .contentImageUrl(metadata.getImageUrl())
+                .contentArtist(metadata.getArtist())
                 .build();
 
         FeaturedContent saved = featuredContentRepository.save(entity);
         return FeaturedContentResponse.fromEntity(saved);
+    }
+
+    private void validateRequest(FeaturedContentRequest request) {
+        if (request.getContentType() == null) {
+            throw new IllegalArgumentException("Content type is required");
+        }
+        if (request.getContentId() == null) {
+            throw new IllegalArgumentException("Content ID is required");
+        }
+        if (featuredContentRepository.existsByContentTypeAndContentId(
+                request.getContentType(), request.getContentId())) {
+            throw new IllegalArgumentException("This content is already featured");
+        }
+    }
+
+    private ContentMetadata resolveContentMetadata(FeaturedContentRequest request) {
+        if (request.getContentType() == ContentType.SONG) {
+            return resolveSongMetadata(request.getContentId());
+        } else if (request.getContentType() == ContentType.ALBUM) {
+            return resolveAlbumMetadata(request.getContentId());
+        }
+        // Retornamos un objeto vacío o lanzamos error si hay más tipos en el futuro
+        return ContentMetadata.builder().build();
+    }
+
+    private ContentMetadata resolveSongMetadata(Long contentId) {
+        Song song = songRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("Song not found with id: " + contentId));
+
+        if (!song.isPublished()) {
+            throw new IllegalArgumentException("Cannot feature unpublished song");
+        }
+
+        UserDTO artistUser = userServiceClient.getUserById(song.getArtistId());
+        String artistName = resolveArtistName(artistUser);
+
+        return ContentMetadata.builder()
+                .title(song.getTitle())
+                .imageUrl(song.getCoverImageUrl())
+                .artist(artistName)
+                .build();
+    }
+
+    private ContentMetadata resolveAlbumMetadata(Long contentId) {
+        Album album = albumRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("Album not found with id: " + contentId));
+
+        if (!album.isPublished()) {
+            throw new IllegalArgumentException("Cannot feature unpublished album");
+        }
+
+        UserDTO artistUser = userServiceClient.getUserById(album.getArtistId());
+        String artistName = resolveArtistName(artistUser);
+
+        return ContentMetadata.builder()
+                .title(album.getTitle())
+                .imageUrl(album.getCoverImageUrl())
+                .artist(artistName)
+                .build();
+    }
+
+    private String resolveArtistName(UserDTO artistUser) {
+        if (artistUser == null) return "Unknown Artist";
+        return artistUser.getArtistName() != null ? artistUser.getArtistName() : artistUser.getUsername();
+    }
+
+    private Integer calculateDisplayOrder(Integer requestOrder) {
+        if (requestOrder == null || requestOrder > 900) {
+            Integer maxOrder = featuredContentRepository.findMaxDisplayOrder();
+            return (maxOrder != null ? maxOrder + 1 : 0);
+        }
+        return requestOrder;
     }
 
     /**
@@ -186,7 +225,7 @@ public class FeaturedContentService {
     @Transactional
     public FeaturedContentResponse updateFeaturedContent(Long id, FeaturedContentRequest request) {
         FeaturedContent entity = featuredContentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Featured content not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + id));
 
         if (request.getStartDate() != null) {
             entity.setStartDate(request.getStartDate());
@@ -216,7 +255,7 @@ public class FeaturedContentService {
     @Transactional
     public void deleteFeaturedContent(Long id) {
         if (!featuredContentRepository.existsById(id)) {
-            throw new IllegalArgumentException("Featured content not found with id: " + id);
+            throw new IllegalArgumentException(WARNING_KEY + id);
         }
         featuredContentRepository.deleteById(id);
     }
@@ -240,7 +279,7 @@ public class FeaturedContentService {
 
         for (ReorderRequest.ReorderItem item : request.getItems()) {
             FeaturedContent entity = featuredContentRepository.findById(item.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Featured content not found with id: " + item.getId()));
+                    .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + item.getId()));
             entity.setDisplayOrder(item.getDisplayOrder());
             featuredContentRepository.save(entity);
         }
@@ -261,7 +300,7 @@ public class FeaturedContentService {
     @Transactional
     public FeaturedContentResponse toggleActive(Long id, boolean isActive) {
         FeaturedContent entity = featuredContentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Featured content not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException(WARNING_KEY + id));
 
         entity.setIsActive(isActive);
         FeaturedContent saved = featuredContentRepository.save(entity);

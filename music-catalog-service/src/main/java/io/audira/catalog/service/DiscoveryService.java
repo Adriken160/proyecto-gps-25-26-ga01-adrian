@@ -49,6 +49,9 @@ public class DiscoveryService {
     private String communityServiceUrl;
 
     private static final int RECOMMENDATIONS_PER_CATEGORY = 10;
+    private static final String CREATE_KEY = "createdAt";
+    private static final String PRICE_KEY = "price";
+    private static final String DELIVERED_KEY = "DELIVERED";
 
     /**
      * Obtiene una lista de canciones que son tendencia actualmente.
@@ -123,15 +126,15 @@ public class DiscoveryService {
         boolean hasQuery = query != null && !query.trim().isEmpty();
         boolean hasFilters = genreId != null || minPrice != null || maxPrice != null;
 
-        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt"); // Default: newest first
+        Sort sort = Sort.by(Sort.Direction.DESC, CREATE_KEY); // Default: newest first
         if ("price_asc".equals(sortBy)) {
-            sort = Sort.by(Sort.Direction.ASC, "price");
+            sort = Sort.by(Sort.Direction.ASC, PRICE_KEY);
         } else if ("price_desc".equals(sortBy)) {
-            sort = Sort.by(Sort.Direction.DESC, "price");
+            sort = Sort.by(Sort.Direction.DESC, PRICE_KEY);
         } else if ("oldest".equals(sortBy)) {
-            sort = Sort.by(Sort.Direction.ASC, "createdAt");
+            sort = Sort.by(Sort.Direction.ASC, CREATE_KEY);
         } else if ("recent".equals(sortBy) || "newest".equals(sortBy)) {
-            sort = Sort.by(Sort.Direction.DESC, "createdAt");
+            sort = Sort.by(Sort.Direction.DESC, CREATE_KEY);
         }
 
         Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
@@ -210,11 +213,11 @@ public class DiscoveryService {
 
         Sort sort = Sort.by(Sort.Direction.DESC, "releaseDate");
         if ("price_asc".equals(sortBy)) {
-            sort = Sort.by(Sort.Direction.ASC, "price");
+            sort = Sort.by(Sort.Direction.ASC, PRICE_KEY);
         } else if ("price_desc".equals(sortBy)) {
-            sort = Sort.by(Sort.Direction.DESC, "price");
+            sort = Sort.by(Sort.Direction.DESC, PRICE_KEY);
         } else if ("oldest".equals(sortBy)) {
-            sort = Sort.by(Sort.Direction.ASC, "createdAt");
+            sort = Sort.by(Sort.Direction.ASC, CREATE_KEY);
         }
 
         Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
@@ -358,7 +361,7 @@ public class DiscoveryService {
             List<OrderDTO> orders = commerceServiceClient.getUserOrders(userId);
 
             Set<Long> purchasedSongIds = orders.stream()
-                    .filter(order -> order.getStatus() != null && "DELIVERED".equals(order.getStatus()))
+                    .filter(order -> order.getStatus() != null && DELIVERED_KEY.equals(order.getStatus()))
                     .flatMap(order -> order.getItems().stream())
                     .filter(item -> "SONG".equals(item.getItemType()))
                     .map(OrderItemDTO::getItemId)
@@ -502,7 +505,7 @@ public class DiscoveryService {
             List<OrderDTO> orders = commerceServiceClient.getUserOrders(userId);
 
             Set<Long> purchasedSongIds = orders.stream()
-                    .filter(order -> order.getStatus() != null && "DELIVERED".equals(order.getStatus()))
+                    .filter(order -> order.getStatus() != null && DELIVERED_KEY.equals(order.getStatus()))
                     .flatMap(order -> order.getItems().stream())
                     .filter(item -> "SONG".equals(item.getItemType()))
                     .map(OrderItemDTO::getItemId)
@@ -558,7 +561,7 @@ public class DiscoveryService {
             List<OrderDTO> orders = commerceServiceClient.getUserOrders(userId);
 
             Set<Long> purchasedSongIds = orders.stream()
-                    .filter(order -> order.getStatus() != null && "DELIVERED".equals(order.getStatus()))
+                    .filter(order -> order.getStatus() != null && DELIVERED_KEY.equals(order.getStatus()))
                     .flatMap(order -> order.getItems().stream())
                     .filter(item -> "SONG".equals(item.getItemType()))
                     .map(OrderItemDTO::getItemId)

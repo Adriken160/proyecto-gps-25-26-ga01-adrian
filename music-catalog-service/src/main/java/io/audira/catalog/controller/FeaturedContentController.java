@@ -27,8 +27,6 @@ public class FeaturedContentController {
     private final FeaturedContentService featuredContentService;
 
     /**
-     * Obtiene todo el contenido destacado configurado (Vista Admin).
-     *
      * @return Lista completa de destacados (activos e inactivos).
      */
     @GetMapping("/api/featured-content")
@@ -37,8 +35,6 @@ public class FeaturedContentController {
     }
 
     /**
-     * Obtiene solo el contenido destacado activo (Vista Usuario).
-     *
      * @return Lista de destacados activos.
      */
     @GetMapping("/api/featured-content/active")

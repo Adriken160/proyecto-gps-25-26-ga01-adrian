@@ -28,8 +28,8 @@ public class ModerationService {
     private final ModerationHistoryRepository moderationHistoryRepository;
     private final UserServiceClient userServiceClient;
     private final io.audira.catalog.client.NotificationClient notificationClient;
-    private final static String WARNING_SONG_KEY = "Canción no encontrada: ";
-    private final static String WARNING_ALBUM_KEY = "Álbum no encontrado: ";
+    private static final String WARNING_SONG_KEY = "Canción no encontrada: ";
+    private static final String WARNING_ALBUM_KEY = "Álbum no encontrado: ";
 
     /**
      * GA01-162: Aprobar una canción

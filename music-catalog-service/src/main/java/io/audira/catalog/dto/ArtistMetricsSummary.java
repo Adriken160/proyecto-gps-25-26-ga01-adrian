@@ -45,8 +45,6 @@ public class ArtistMetricsSummary {
 
     /**
      * Porcentaje de crecimiento de reproducciones.
-     * <p>Comparación: (Últimos 30 días) vs (Periodo de 30 días anterior).</p>
-     * <p>Puede ser negativo si el rendimiento ha bajado.</p>
      */
     private Double playsGrowthPercentage;
 

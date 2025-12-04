@@ -26,7 +26,6 @@ public interface FeaturedContentRepository extends JpaRepository<FeaturedContent
 
     /**
      * Recupera todo el contenido destacado ordenado por prioridad.
-     * <p>Vista administrativa (incluye inactivos y programados).</p>
      *
      * @return Lista completa ordenada.
      */
@@ -68,15 +67,11 @@ public interface FeaturedContentRepository extends JpaRepository<FeaturedContent
     boolean existsByContentTypeAndContentId(ContentType contentType, Long contentId);
 
     /**
-     * Recupera todo el contenido activo, ordenado por prioridad.
-     * <p>Vista pública (solo activos).</p>
-     *
      * @return Lista de contenido activo ordenada.
      */
     List<FeaturedContent> findByIsActiveTrueOrderByDisplayOrderAsc();
 
     /**
-     * Recupera todo el contenido de un tipo específico, ordenado por prioridad.
      * @param contentType Tipo de contenido (SONG, ALBUM, etc.).
      * @return Lista filtrada y ordenada.
      */

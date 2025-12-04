@@ -39,7 +39,6 @@ public interface ModerationHistoryRepository extends JpaRepository<ModerationHis
             Long productId, String productType);
 
     /**
-     * Obtiene todo el historial de interacciones de moderación asociadas a un artista.
      * @param artistId ID del artista.
      * @return Historial del artista.
      */

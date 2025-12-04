@@ -131,16 +131,4 @@ public class DiscoveryController {
         RecommendationsResponse recommendations = discoveryService.getRecommendationsForUser(userId);
         return ResponseEntity.ok(recommendations);
     }
-
-    /**
-     * Endpoint alternativo para obtener recomendaciones usando el ID en la ruta.
-     *
-     * @param userId ID del usuario.
-     * @return Recomendaciones personalizadas.
-     */
-    @GetMapping("/recommendations/{userId}")
-    public ResponseEntity<RecommendationsResponse> getRecommendationsByPath(@PathVariable Long userId) {
-        RecommendationsResponse recommendations = discoveryService.getRecommendationsForUser(userId);
-        return ResponseEntity.ok(recommendations);
-    }
 }

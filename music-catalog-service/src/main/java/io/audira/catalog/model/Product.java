@@ -109,7 +109,6 @@ public abstract class Product {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        // Por defecto, todo contenido nuevo está en revisión
         if (this.moderationStatus == null) {
             this.moderationStatus = ModerationStatus.PENDING;
         }

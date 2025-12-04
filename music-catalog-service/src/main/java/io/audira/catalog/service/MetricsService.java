@@ -416,51 +416,51 @@ public class MetricsService {
 
     private Map<String, Object> buildResultMap(SalesStats stats) {
         Map<String, Object> result = new HashMap<>();
-        result.put("totalSales", stats.totalSales);
+        result.put(TOTAL_KEY, stats.totalSales);
         result.put("totalRevenue", stats.totalRevenue);
         result.put("salesLast30Days", stats.salesLast30Days);
         result.put("revenueLast30Days", stats.revenueLast30Days);
         return result;
     }
 
-    /**
-     * Calcula las ventas específicas de una canción individual.
-     * <p>
-     * Suma las unidades vendidas de este track específico a través del servicio de comercio.
-     * Es útil para determinar qué canciones están generando más conversión ("Best Sellers").
-     * </p>
-     *
-     * @param songId Identificador de la canción.
-     * @return Cantidad total de veces que la canción ha sido comprada.
-     */
+    // 2. Método Principal (Complejidad reducida drásticamente)
     private Map<String, Object> calculateSongSales(Long songId, List<OrderDTO> allOrders) {
-        long totalSales = 0;
-        BigDecimal totalRevenue = BigDecimal.ZERO;
+        SalesStats stats = new SalesStats();
 
         for (OrderDTO order : allOrders) {
-        // CAMBIO: Combinamos las condiciones en un solo IF positivo
-        // Verificamos si es válido para procesar
-        boolean isDelivered = "DELIVERED".equals(order.getStatus());
-        boolean hasItems = order.getItems() != null;
+            // Delegamos la lógica compleja a un método auxiliar
+            processOrderForSong(order, songId, stats);
+        }
 
-        if (isDelivered && hasItems) {
-            // Lógica interna movida dentro del if
-            for (OrderItemDTO item : order.getItems()) {
-                if ("SONG".equalsIgnoreCase(item.getItemType()) && songId.equals(item.getItemId())) {
-                    long quantity = item.getQuantity() != null ? item.getQuantity() : 1;
-                    BigDecimal price = item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
-                    
-                    totalSales += quantity;
-                    totalRevenue = totalRevenue.add(price.multiply(BigDecimal.valueOf(quantity)));
-                }
-            }
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalSales", stats.totalSales);
+        result.put("totalRevenue", stats.totalRevenue);
+        return result;
+    }
+
+    // 3. Método Auxiliar: Procesa una orden individual
+    private void processOrderForSong(OrderDTO order, Long songId, SalesStats stats) {
+        // Guard Clause: Si NO es válida, salimos inmediatamente.
+        // Esto evita el anidamiento profundo (else).
+        if (!isOrderValid(order)) {
+            return;
+        }
+
+        for (OrderItemDTO item : order.getItems()) {
+            accumulateItemSales(item, songId, stats);
         }
     }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put(TOTAL_KEY, totalSales);
-        result.put(REVENUE_KEY, totalRevenue);
-        return result;
+    // 4. Método Auxiliar: Calcula las ventas del ítem
+    private void accumulateItemSales(OrderItemDTO item, Long songId, SalesStats stats) {
+        // Verificación simple y plana
+        if ("SONG".equalsIgnoreCase(item.getItemType()) && songId.equals(item.getItemId())) {
+            long quantity = item.getQuantity() != null ? item.getQuantity() : 1;
+            BigDecimal price = item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
+
+            stats.totalSales += quantity;
+            stats.totalRevenue = stats.totalRevenue.add(price.multiply(BigDecimal.valueOf(quantity)));
+        }
     }
 
     // 1. Inner class to manage the mutable state (simplifies method signatures)
@@ -514,7 +514,7 @@ public class MetricsService {
 
     private long extractTotalSales(List<Song> artistSongs, List<OrderDTO> allOrders) {
         Map<String, Object> salesMetrics = calculateArtistSales(artistSongs, allOrders);
-        long sales = (Long) salesMetrics.get("totalSales");
+        long sales = (Long) salesMetrics.get(TOTAL_KEY);
         logger.info("   Total sales to distribute: {}", sales);
         return sales;
     }

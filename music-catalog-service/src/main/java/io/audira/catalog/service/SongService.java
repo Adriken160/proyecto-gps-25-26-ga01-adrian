@@ -198,9 +198,6 @@ public class SongService {
 
     /**
      * Busca canciones por coincidencia de texto en título o artista.
-     * <p>
-     * Búsqueda administrativa sobre todo el catálogo.
-     * </p>
      *
      * @param query Texto de búsqueda.
      * @return Lista de resultados coincidentes.

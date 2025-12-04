@@ -454,7 +454,7 @@ class _AdminFaqsScreenState extends State<AdminFaqsScreen> {
               try {
                 if (isEditing) {
                   await _faqService.updateFaq(
-                    id: faq!.id,
+                    id: faq.id,
                     question: question,
                     answer: answer,
                     category: category,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:ui'; // Para ImageFilter
 
 // Imports de tu proyecto
 import 'package:audira_frontend/config/theme.dart';

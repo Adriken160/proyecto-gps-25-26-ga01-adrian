@@ -157,7 +157,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Future<void> _toggleUserStatus(User user) async {
-    final action = user.isActive ? 'suspender' : 'activar';
     final translatedAction = user.isActive ? 'SUSPENDER' : 'ACTIVAR';
 
     final confirmed = await showDialog<bool>(

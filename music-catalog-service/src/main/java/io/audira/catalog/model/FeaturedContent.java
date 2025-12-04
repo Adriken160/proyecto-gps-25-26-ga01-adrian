@@ -147,23 +147,11 @@ public class FeaturedContent {
      */
     @Transient
     public boolean isScheduledActive() {
-        if (!isActive) {
-            return false;
-        }
-
         LocalDateTime now = LocalDateTime.now();
 
-        // Si hay fecha de inicio y aún no ha llegado
-        if (startDate != null && now.isBefore(startDate)) {
-            return false;
-        }
-
-        // Si hay fecha de fin y ya pasó
-        if (endDate != null && now.isAfter(endDate)) {
-            return false;
-        }
-
-        return true;
+        return Boolean.TRUE.equals(isActive)
+                && (startDate == null || !now.isBefore(startDate))
+                && (endDate == null || !now.isAfter(endDate));
     }
 
     /**
@@ -174,7 +162,7 @@ public class FeaturedContent {
      */
     @Transient
     public String getScheduleStatus() {
-        if (!isActive) {
+        if (!Boolean.TRUE.equals(isActive)) { 
             return "INACTIVE";
         }
 

@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Servicio encargado de la gestión del contenido destacado en la plataforma.
@@ -55,7 +54,7 @@ public class FeaturedContentService {
         return featuredContentRepository.findAllByOrderByDisplayOrderAsc()
                 .stream()
                 .map(FeaturedContentResponse::fromEntity)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -75,7 +74,7 @@ public class FeaturedContentService {
         return featuredContentRepository.findActiveScheduledContent(LocalDateTime.now())
                 .stream()
                 .map(FeaturedContentResponse::fromEntity)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**

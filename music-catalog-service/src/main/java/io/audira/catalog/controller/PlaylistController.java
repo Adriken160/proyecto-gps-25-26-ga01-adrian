@@ -23,6 +23,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class PlaylistController {
 
+    private static final String ERROR_KEY = "error";
     private final PlaylistService playlistService;
 
     /**
@@ -40,13 +41,13 @@ public class PlaylistController {
      * @return Detalle de la playlist.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<?> getPlaylistById(@PathVariable Long id) {
+    public ResponseEntity<Object> getPlaylistById(@PathVariable Long id) {
         Optional<Playlist> playlist = playlistService.getPlaylistById(id);
         if (playlist.isPresent()) {
             return ResponseEntity.ok(playlist.get());
         } else {
             Map<String, String> error = new HashMap<>();
-            error.put("error", "Playlist not found with id: " + id);
+            error.put(ERROR_KEY, "Playlist not found with id: " + id);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -76,13 +77,13 @@ public class PlaylistController {
      * @return Playlist creada.
      */
     @PostMapping
-    public ResponseEntity<?> createPlaylist(@RequestBody Playlist playlist) {
+    public ResponseEntity<Object> createPlaylist(@RequestBody Playlist playlist) {
         try {
             Playlist createdPlaylist = playlistService.createPlaylist(playlist);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdPlaylist);
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
@@ -94,7 +95,7 @@ public class PlaylistController {
      * @return Playlist actualizada.
      */
     @PatchMapping("/{id}")
-    public ResponseEntity<?> updatePlaylist(
+    public ResponseEntity<Object> updatePlaylist(
             @PathVariable Long id,
             @RequestBody Map<String, Object> updates) {
         try {
@@ -106,7 +107,7 @@ public class PlaylistController {
             return ResponseEntity.ok(updatedPlaylist);
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -117,13 +118,13 @@ public class PlaylistController {
      * @return 204 No Content.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deletePlaylist(@PathVariable Long id) {
+    public ResponseEntity<Object> deletePlaylist(@PathVariable Long id) {
         try {
             playlistService.deletePlaylist(id);
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -135,7 +136,7 @@ public class PlaylistController {
      * @return Playlist actualizada.
      */
     @PostMapping("/{id}/songs")
-    public ResponseEntity<?> addSongToPlaylist(
+    public ResponseEntity<Object> addSongToPlaylist(
             @PathVariable Long id,
             @RequestParam Long songId) {
         try {
@@ -143,7 +144,7 @@ public class PlaylistController {
             return ResponseEntity.ok(updatedPlaylist);
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -155,7 +156,7 @@ public class PlaylistController {
      * @return Playlist actualizada.
      */
     @DeleteMapping("/{id}/songs/{songId}")
-    public ResponseEntity<?> removeSongFromPlaylist(
+    public ResponseEntity<Object> removeSongFromPlaylist(
             @PathVariable Long id,
             @PathVariable Long songId) {
         try {
@@ -163,7 +164,7 @@ public class PlaylistController {
             return ResponseEntity.ok(updatedPlaylist);
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -175,14 +176,14 @@ public class PlaylistController {
      * @return Playlist actualizada.
      */
     @PutMapping("/{id}/songs/reorder")
-    public ResponseEntity<?> reorderPlaylistSongs(
+    public ResponseEntity<Object> reorderPlaylistSongs(
             @PathVariable Long id,
             @RequestBody Map<String, List<Long>> request) {
         try {
             List<Long> songIds = request.get("songIds");
             if (songIds == null) {
                 Map<String, String> error = new HashMap<>();
-                error.put("error", "songIds is required");
+                error.put(ERROR_KEY, "songIds is required");
                 return ResponseEntity.badRequest().body(error);
             }
 
@@ -190,7 +191,7 @@ public class PlaylistController {
             return ResponseEntity.ok(updatedPlaylist);
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }

@@ -38,7 +38,6 @@
         <!-- New Epic-based Services -->
         <module>community-service</module>
         <module>music-catalog-service</module>
-        <!--<module>playback-service</module> -->
         <module>commerce-service</module> 
     </modules>
 

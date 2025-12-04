@@ -23,6 +23,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class FeaturedContentController {
 
+    private static final String ERROR_KEY = "error";
     private final FeaturedContentService featuredContentService;
 
     /**
@@ -52,12 +53,12 @@ public class FeaturedContentController {
      * @return El contenido destacado correspondiente.
      */
     @GetMapping("/api/featured-content/{id}")
-    public ResponseEntity<?> getFeaturedContentById(@PathVariable Long id) {
+    public ResponseEntity<Object> getFeaturedContentById(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(featuredContentService.getFeaturedContentById(id));
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -69,13 +70,13 @@ public class FeaturedContentController {
      * @return El contenido destacado creado.
      */
     @PostMapping("/api/featured-content")
-    public ResponseEntity<?> createFeaturedContent(@RequestBody FeaturedContentRequest request) {
+    public ResponseEntity<Object> createFeaturedContent(@RequestBody FeaturedContentRequest request) {
         try {
             FeaturedContentResponse response = featuredContentService.createFeaturedContent(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
@@ -88,14 +89,14 @@ public class FeaturedContentController {
      * @return El elemento actualizado.
      */
     @PutMapping("/api/featured-content/{id}")
-    public ResponseEntity<?> updateFeaturedContent(
+    public ResponseEntity<Object> updateFeaturedContent(
             @PathVariable Long id,
             @RequestBody FeaturedContentRequest request) {
         try {
             return ResponseEntity.ok(featuredContentService.updateFeaturedContent(id, request));
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -107,13 +108,13 @@ public class FeaturedContentController {
      * @return 204 No Content.
      */
     @DeleteMapping("/api/featured-content/{id}")
-    public ResponseEntity<?> deleteFeaturedContent(@PathVariable Long id) {
+    public ResponseEntity<Object> deleteFeaturedContent(@PathVariable Long id) {
         try {
             featuredContentService.deleteFeaturedContent(id);
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -125,12 +126,12 @@ public class FeaturedContentController {
      * @return Lista reordenada.
      */
     @PutMapping("/api/featured-content/reorder")
-    public ResponseEntity<?> reorderFeaturedContent(@RequestBody ReorderRequest request) {
+    public ResponseEntity<Object> reorderFeaturedContent(@RequestBody ReorderRequest request) {
         try {
             return ResponseEntity.ok(featuredContentService.reorderFeaturedContent(request));
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
@@ -143,20 +144,20 @@ public class FeaturedContentController {
      * @return El elemento actualizado.
      */
     @PatchMapping("/api/featured-content/{id}/toggle-active")
-    public ResponseEntity<?> toggleActive(
+    public ResponseEntity<Object> toggleActive(
             @PathVariable Long id,
             @RequestBody Map<String, Boolean> body) {
         try {
             Boolean isActive = body.get("isActive");
             if (isActive == null) {
                 Map<String, String> error = new HashMap<>();
-                error.put("error", "isActive field is required");
+                error.put(ERROR_KEY, "isActive field is required");
                 return ResponseEntity.badRequest().body(error);
             }
             return ResponseEntity.ok(featuredContentService.toggleActive(id, isActive));
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }

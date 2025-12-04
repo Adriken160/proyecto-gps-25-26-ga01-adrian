@@ -26,6 +26,7 @@ import java.util.Map;
 @Slf4j
 public class SongController {
 
+    private static final String ERROR_KEY = "error";
     private final SongService songService;
 
     /**
@@ -35,13 +36,13 @@ public class SongController {
      * @return La canción creada o un error 400 si los datos son inválidos.
      */
     @PostMapping
-    public ResponseEntity<?> createSong(@RequestBody Song song) {
+    public ResponseEntity<Object> createSong(@RequestBody Song song) {
         try {
             Song createdSong = songService.createSong(song);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdSong);
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
@@ -63,12 +64,12 @@ public class SongController {
      * @return Detalles de la canción o 404 si no existe.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<?> getSongById(@PathVariable Long id) {
+    public ResponseEntity<Object> getSongById(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(songService.getSongByIdWithArtistName(id));
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -145,12 +146,12 @@ public class SongController {
      * @return La canción actualizada.
      */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateSong(@PathVariable Long id, @RequestBody Song song) {
+    public ResponseEntity<Object> updateSong(@PathVariable Long id, @RequestBody Song song) {
         try {
             return ResponseEntity.ok(songService.updateSong(id, song));
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -162,13 +163,13 @@ public class SongController {
      * @return 204 No Content.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteSong(@PathVariable Long id) {
+    public ResponseEntity<Object> deleteSong(@PathVariable Long id) {
         try {
             songService.deleteSong(id);
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
@@ -261,7 +262,7 @@ public class SongController {
      * @return Map con artistId y price o 404 si no existe.
      */
     @GetMapping("/{id}/details/commerce") // Endpoint claro para uso interno
-    public ResponseEntity<?> getSongDetailsForCommerce(@PathVariable Long id) {
+    public ResponseEntity<Object> getSongDetailsForCommerce(@PathVariable Long id) {
         try {
             Map<String, Object> details = songService.getArtistAndPriceBySongId(id);
             return ResponseEntity.ok(details);

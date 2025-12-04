@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Servicio que encapsula la lógica de negocio para la gestión de Álbumes.
@@ -101,7 +100,7 @@ public class AlbumService {
         final String finalArtistName = artistName;
         return albums.stream()
                 .map(album -> AlbumDTO.fromAlbum(album, finalArtistName))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -121,33 +120,14 @@ public class AlbumService {
      */
     @Transactional
     public AlbumResponse createAlbum(AlbumCreateRequest request) {
-        BigDecimal totalSongPrice = BigDecimal.ZERO;
+        BigDecimal totalSongPrice = calculateTotalSongPrice(request.getSongIds());
+        BigDecimal finalPrice = calculateFinalPrice(totalSongPrice, request);
 
-        if (request.getSongIds() != null && !request.getSongIds().isEmpty()) {
-            for (Long songId : request.getSongIds()) {
-                Optional<Song> songOpt = songRepository.findById(songId);
-                if (songOpt.isPresent() && songOpt.get().getPrice() != null) {
-                    totalSongPrice = totalSongPrice.add(songOpt.get().getPrice());
-                }
-            }
-        }
+        log.info("Album price calculation: totalSongPrice={}, discount={}%, finalPrice={}",
+                totalSongPrice, request.getDiscountPercentage(), finalPrice);
 
         double discountPercentage = request.getDiscountPercentage() != null ?
                 request.getDiscountPercentage() : 15.0;
-
-        BigDecimal finalPrice = totalSongPrice;
-        if (discountPercentage > 0 && totalSongPrice.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal discountFactor = BigDecimal.valueOf(discountPercentage).divide(BigDecimal.valueOf(100));
-            BigDecimal discount = totalSongPrice.multiply(discountFactor);
-            finalPrice = totalSongPrice.subtract(discount);
-        }
-
-        if (finalPrice.compareTo(BigDecimal.ZERO) == 0 && request.getPrice() != null) {
-            finalPrice = request.getPrice();
-        }
-
-        log.info("Album price calculation: totalSongPrice={}, discount={}%, finalPrice={}",
-                totalSongPrice, discountPercentage, finalPrice);
 
         Album album = Album.builder()
                 .title(request.getTitle())
@@ -165,21 +145,75 @@ public class AlbumService {
         album = albumRepository.save(album);
 
         if (request.getSongIds() != null && !request.getSongIds().isEmpty()) {
-            int trackNumber = 1;
-            for (Long songId : request.getSongIds()) {
-                Optional<Song> songOpt = songRepository.findById(songId);
-                if (songOpt.isPresent()) {
-                    Song song = songOpt.get();
-                    song.setAlbumId(album.getId());
-                    song.setTrackNumber(trackNumber++);
-                    song.setCategory("Album");
-                    songRepository.save(song);
-                }
-            }
+            associateSongsWithAlbum(album, request.getSongIds());
         }
 
         int songCount = songRepository.findByAlbumId(album.getId()).size();
         return AlbumResponse.fromAlbum(album, songCount);
+    }
+
+    /**
+     * Calcula la suma del precio de todas las canciones.
+     * Reduce complejidad al aislar el bucle y los nulos.
+     */
+    private BigDecimal calculateTotalSongPrice(List<Long> songIds) {
+        if (songIds == null || songIds.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (Long songId : songIds) {
+            // Optimización sugerida: Podrías usar songRepository.findAllById(songIds) para evitar N queries
+            Optional<Song> songOpt = songRepository.findById(songId);
+            if (songOpt.isPresent() && songOpt.get().getPrice() != null) {
+                total = total.add(songOpt.get().getPrice());
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Aplica la lógica de descuentos y precio manual.
+     * Reduce complejidad aislando las condiciones matemáticas.
+     */
+    private BigDecimal calculateFinalPrice(BigDecimal totalSongPrice, AlbumCreateRequest request) {
+        double discountPercentage = request.getDiscountPercentage() != null ?
+                request.getDiscountPercentage() : 15.0;
+
+        BigDecimal finalPrice = totalSongPrice;
+
+        // Aplicar descuento si corresponde
+        if (discountPercentage > 0 && totalSongPrice.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal discountFactor = BigDecimal.valueOf(discountPercentage)
+                    .divide(BigDecimal.valueOf(100));
+            BigDecimal discount = totalSongPrice.multiply(discountFactor);
+            finalPrice = totalSongPrice.subtract(discount);
+        }
+
+        // Sobreescribir si se define un precio manual específico y el calculado es 0 (o según tu lógica original)
+        if (finalPrice.compareTo(BigDecimal.ZERO) == 0 && request.getPrice() != null) {
+            finalPrice = request.getPrice();
+        }
+
+        return finalPrice;
+    }
+
+    /**
+     * Vincula las canciones al álbum y actualiza sus metadatos.
+     * Reduce complejidad aislando el segundo bucle y la lógica de seteo.
+     */
+    private void associateSongsWithAlbum(Album album, List<Long> songIds) {
+        int trackNumber = 1;
+        for (Long songId : songIds) {
+            Optional<Song> songOpt = songRepository.findById(songId);
+            if (songOpt.isPresent()) {
+                Song song = songOpt.get();
+                song.setAlbumId(album.getId());
+                song.setTrackNumber(trackNumber++);
+                song.setCategory("Album");
+                songRepository.save(song);
+            }
+        }
     }
 
     /**
@@ -241,22 +275,21 @@ public class AlbumService {
 
             // Obtener información del artista
             UserDTO artist = userServiceClient.getUserById(product.getArtistId());
-            String artistName = artist != null && artist.getArtistName() != null
-                ? artist.getArtistName()
-                : (artist != null ? artist.getUsername() : "Artista");
+            String artistName = "Artista"; // Valor por defecto
 
-            // Enviar notificación a cada seguidor
-            for (Long followerId : followerIds) {
-                try {
-                    notificationClient.notifyNewProduct(
-                        followerId,
-                        product.getProductType(),
-                        product.getTitle(),
-                        artistName
-                    );
-                } catch (Exception e) {
-                    log.warn("Failed to notify follower {} about new product {}", followerId, product.getId(), e);
+            if (artist != null) {
+                // Prioridad 1: Nombre artístico
+                if (artist.getArtistName() != null) {
+                    artistName = artist.getArtistName();
+                } 
+                // Prioridad 2: Nombre de usuario (si no hay nombre artístico)
+                else {
+                    artistName = artist.getUsername();
                 }
+            }
+            
+            for (Long followerId : followerIds) {
+                notifySingleFollower(followerId, product, artistName);
             }
 
             log.info("Notificados {} seguidores sobre nuevo producto: {} ({})",
@@ -264,6 +297,19 @@ public class AlbumService {
 
         } catch (Exception e) {
             log.error("Error notifying followers about new product {}", product.getId(), e);
+        }
+    }
+
+    private void notifySingleFollower(Long followerId, Product product, String artistName) {
+        try {
+            notificationClient.notifyNewProduct(
+                followerId,
+                product.getProductType(),
+                product.getTitle(),
+                artistName
+            );
+        } catch (Exception e) {
+            log.warn("Failed to notify follower {} about new product {}", followerId, product.getId(), e);
         }
     }
 

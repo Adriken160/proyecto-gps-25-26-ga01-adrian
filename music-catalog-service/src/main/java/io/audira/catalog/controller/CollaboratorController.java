@@ -2,11 +2,10 @@ package io.audira.catalog.controller;
 
 import io.audira.catalog.model.Collaborator;
 import io.audira.catalog.service.CollaboratorService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import lombok.RequiredArgsConstructor;
 import io.audira.catalog.dto.CollaborationRequest;
 import io.audira.catalog.dto.UpdateRevenueRequest;
 import jakarta.validation.Valid;
@@ -26,10 +25,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/collaborators")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class CollaboratorController {
 
-    @Autowired
-    private CollaboratorService collaboratorService;
+    private final CollaboratorService collaboratorService;
 
     /**
      * Lista todos los colaboradores del sistema.

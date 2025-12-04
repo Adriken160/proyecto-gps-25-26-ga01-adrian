@@ -262,7 +262,7 @@ public class MetricsService {
                 .sorted(Comparator.comparing(Song::getPlays).reversed())
                 .limit(limit)
                 .map(song -> getSongMetrics(song.getId()))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -282,7 +282,7 @@ public class MetricsService {
         List<Song> artistSongs = songRepository.findByArtistId(song.getArtistId());
         List<Song> sortedByPlays = artistSongs.stream()
                 .sorted(Comparator.comparing(Song::getPlays).reversed())
-                .collect(Collectors.toList());
+                .toList();
 
         int rank = sortedByPlays.indexOf(song) + 1;
 

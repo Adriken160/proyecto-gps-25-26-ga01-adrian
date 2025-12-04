@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import io.audira.catalog.client.NotificationClient;
 
 /**
@@ -149,7 +148,7 @@ public class SongService {
         final String finalArtistName = artistName;
         return songs.stream()
                 .map(song -> SongDTO.fromSong(song, finalArtistName))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -478,7 +477,7 @@ public class SongService {
     private List<SongDTO> convertToDTOs(List<Song> songs) {
         return songs.stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
  
     /**

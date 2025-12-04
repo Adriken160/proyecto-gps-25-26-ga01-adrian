@@ -124,21 +124,11 @@ public class DiscoveryController {
      * </p>
      *
      * @param userId ID del usuario (query param).
-     * @param id ID del usuario (path variable opcional).
      * @return Objeto con recomendaciones categorizadas.
      */
     @GetMapping("/recommendations")
-    public ResponseEntity<RecommendationsResponse> getRecommendations(
-            @RequestParam(required = false) Long userId,
-            @PathVariable(required = false) Long id) {
-
-        Long targetUserId = userId != null ? userId : id;
-
-        if (targetUserId == null) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        RecommendationsResponse recommendations = discoveryService.getRecommendationsForUser(targetUserId);
+    public ResponseEntity<RecommendationsResponse> getRecommendations(@RequestParam Long userId) {         
+        RecommendationsResponse recommendations = discoveryService.getRecommendationsForUser(userId);
         return ResponseEntity.ok(recommendations);
     }
 

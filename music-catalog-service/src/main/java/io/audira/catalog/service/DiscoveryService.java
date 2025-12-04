@@ -385,13 +385,13 @@ public class DiscoveryService {
                 recommendations.addAll(genreSongs.stream()
                         .filter(song -> !purchasedSongIds.contains(song.getId()))
                         .limit(5)
-                        .collect(Collectors.toList()));
+                        .toList());
             }
 
             List<Song> limitedRecommendations = recommendations.stream()
                     .distinct()
                     .limit(RECOMMENDATIONS_PER_CATEGORY)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return enrichWithArtistNames(limitedRecommendations, "Based on your purchase history", 0.85);
 
@@ -425,13 +425,13 @@ public class DiscoveryService {
                 List<Song> songs = songRepository.findByArtistId(artistId).stream()
                         .filter(Song::isPublished)
                         .limit(3) // Limit per artist to ensure variety
-                        .collect(Collectors.toList());
+                        .toList();
                 artistSongs.addAll(songs);
             }
 
             List<Song> limitedSongs = artistSongs.stream()
                     .limit(RECOMMENDATIONS_PER_CATEGORY)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return enrichWithArtistNames(limitedSongs, "From artists you follow", 0.9);
 
@@ -454,7 +454,7 @@ public class DiscoveryService {
         try {
             List<Song> trendingSongs = songRepository.findTopPublishedByPlays().stream()
                     .limit(RECOMMENDATIONS_PER_CATEGORY)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return enrichWithArtistNames(trendingSongs, "Trending now", 0.7);
 
@@ -476,7 +476,7 @@ public class DiscoveryService {
         try {
             List<Song> newSongs = songRepository.findTop20ByPublishedTrueOrderByCreatedAtDesc().stream()
                     .limit(RECOMMENDATIONS_PER_CATEGORY)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return enrichWithArtistNames(newSongs, "New release", 0.75);
 
@@ -527,13 +527,13 @@ public class DiscoveryService {
                 recommendations.addAll(genreSongs.stream()
                         .filter(song -> !purchasedSongIds.contains(song.getId()))
                         .limit(4)
-                        .collect(Collectors.toList()));
+                        .toList());
             }
 
             List<Song> limited = recommendations.stream()
                     .distinct()
                     .limit(RECOMMENDATIONS_PER_CATEGORY)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return enrichWithArtistNames(limited, "Songs from genres you love", 0.88);
 
@@ -579,14 +579,14 @@ public class DiscoveryService {
                         .filter(Song::isPublished)
                         .filter(song -> !purchasedSongIds.contains(song.getId()))
                         .limit(3)
-                        .collect(Collectors.toList());
+                        .toList();
                 recommendations.addAll(artistSongs);
             }
 
             List<Song> limited = recommendations.stream()
                     .distinct()
                     .limit(RECOMMENDATIONS_PER_CATEGORY)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return enrichWithArtistNames(limited, "More from artists you bought", 0.92);
 
@@ -649,13 +649,13 @@ public class DiscoveryService {
                 recommendations.addAll(genreSongs.stream()
                         .filter(song -> !likedSongIds.contains(song.getId()))
                         .limit(4)
-                        .collect(Collectors.toList()));
+                        .toList());
             }
 
             List<Song> limited = recommendations.stream()
                     .distinct()
                     .limit(RECOMMENDATIONS_PER_CATEGORY)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return enrichWithArtistNames(limited, "Based on songs you liked", 0.90);
 
@@ -697,7 +697,7 @@ public class DiscoveryService {
 
                     return RecommendedSong.fromSong(song, artistName, reason, relevanceScore);
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**

@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Controlador para la moderación de contenido (GA01-162, GA01-163).
@@ -27,6 +26,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ModerationController {
 
+    private static final String ERROR_KEY = "error";
     private final ModerationService moderationService;
 
     /**
@@ -37,14 +37,14 @@ public class ModerationController {
      * @return La canción aprobada.
      */
     @PostMapping("/songs/{id}/approve")
-    public ResponseEntity<?> approveSong(@PathVariable Long id,
+    public ResponseEntity<Object> approveSong(@PathVariable Long id,
                                          @RequestBody ModerationRequest request) {
         try {
             Song song = moderationService.approveSong(id, request.getAdminId(), request.getNotes());
             return ResponseEntity.ok(song);
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
@@ -57,7 +57,7 @@ public class ModerationController {
      * @return La canción rechazada.
      */
     @PostMapping("/songs/{id}/reject")
-    public ResponseEntity<?> rejectSong(@PathVariable Long id,
+    public ResponseEntity<Object> rejectSong(@PathVariable Long id,
                                         @RequestBody ModerationRequest request) {
         try {
             Song song = moderationService.rejectSong(id, request.getAdminId(),
@@ -65,7 +65,7 @@ public class ModerationController {
             return ResponseEntity.ok(song);
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
@@ -78,14 +78,14 @@ public class ModerationController {
      * @return El álbum aprobado.
      */
     @PostMapping("/albums/{id}/approve")
-    public ResponseEntity<?> approveAlbum(@PathVariable Long id,
+    public ResponseEntity<Object> approveAlbum(@PathVariable Long id,
                                           @RequestBody ModerationRequest request) {
         try {
             Album album = moderationService.approveAlbum(id, request.getAdminId(), request.getNotes());
             return ResponseEntity.ok(album);
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
@@ -98,7 +98,7 @@ public class ModerationController {
      * @return El álbum rechazado.
      */
     @PostMapping("/albums/{id}/reject")
-    public ResponseEntity<?> rejectAlbum(@PathVariable Long id,
+    public ResponseEntity<Object> rejectAlbum(@PathVariable Long id,
                                          @RequestBody ModerationRequest request) {
         try {
             Album album = moderationService.rejectAlbum(id, request.getAdminId(),
@@ -106,7 +106,7 @@ public class ModerationController {
             return ResponseEntity.ok(album);
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put(ERROR_KEY, e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
@@ -171,7 +171,7 @@ public class ModerationController {
         List<ModerationHistory> history = moderationService.getModerationHistory();
         List<ModerationHistoryResponse> response = history.stream()
                 .map(this::toResponse)
-                .collect(Collectors.toList());
+                .toList(); 
         return ResponseEntity.ok(response);
     }
 
@@ -190,7 +190,7 @@ public class ModerationController {
                 productId, productType.toUpperCase());
         List<ModerationHistoryResponse> response = history.stream()
                 .map(this::toResponse)
-                .collect(Collectors.toList());
+                .toList(); 
         return ResponseEntity.ok(response);
     }
 
@@ -206,7 +206,7 @@ public class ModerationController {
         List<ModerationHistory> history = moderationService.getArtistModerationHistory(artistId);
         List<ModerationHistoryResponse> response = history.stream()
                 .map(this::toResponse)
-                .collect(Collectors.toList());
+                .toList(); 
         return ResponseEntity.ok(response);
     }
 
